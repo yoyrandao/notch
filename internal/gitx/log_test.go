@@ -1,6 +1,8 @@
 package gitx
 
 import (
+	"errors"
+	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -100,6 +102,122 @@ func TestCommitsSince_NoRefReturnsAll(t *testing.T) {
 	}
 	if len(msgs) != 2 {
 		t.Fatalf("got %d, want 2: %v", len(msgs), msgs)
+	}
+}
+
+func TestLog_ReturnsHashAndMessage(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	mustRun(t, dir, "commit", "--allow-empty", "-m", "feat: one")
+	mustRun(t, dir, "commit", "--allow-empty", "-m", "fix: two")
+
+	cs, err := Log(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cs) != 2 {
+		t.Fatalf("got %d commits", len(cs))
+	}
+	for _, c := range cs {
+		if len(c.Hash) != 40 {
+			t.Fatalf("expected 40-char hash, got %q", c.Hash)
+		}
+		if c.Message == "" {
+			t.Fatal("empty message")
+		}
+	}
+}
+
+func TestCreateCommit_StagesAndCommits(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	mustRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	path := dir + "/CHANGELOG.md"
+	if err := os.WriteFile(path, []byte("# Changelog\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("GIT_AUTHOR_NAME", "test")
+	t.Setenv("GIT_AUTHOR_EMAIL", "test@example.com")
+	t.Setenv("GIT_COMMITTER_NAME", "test")
+	t.Setenv("GIT_COMMITTER_EMAIL", "test@example.com")
+
+	if err := CreateCommit(dir, "chore(release): v0.1.0", []string{"CHANGELOG.md"}); err != nil {
+		t.Fatal(err)
+	}
+
+	cs, err := Log(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cs) != 2 {
+		t.Fatalf("expected 2 commits, got %d", len(cs))
+	}
+	if !strings.HasPrefix(cs[0].Message, "chore(release): v0.1.0") {
+		t.Fatalf("head message = %q", cs[0].Message)
+	}
+}
+
+func TestCreateCommit_NothingStaged(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	mustRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	t.Setenv("GIT_AUTHOR_NAME", "test")
+	t.Setenv("GIT_AUTHOR_EMAIL", "test@example.com")
+	t.Setenv("GIT_COMMITTER_NAME", "test")
+	t.Setenv("GIT_COMMITTER_EMAIL", "test@example.com")
+
+	err := CreateCommit(dir, "noop", nil)
+	if !errors.Is(err, ErrNothingStaged) {
+		t.Fatalf("expected ErrNothingStaged, got %v", err)
+	}
+}
+
+func TestCreateTag(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	mustRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	t.Setenv("GIT_AUTHOR_NAME", "test")
+	t.Setenv("GIT_AUTHOR_EMAIL", "test@example.com")
+	t.Setenv("GIT_COMMITTER_NAME", "test")
+	t.Setenv("GIT_COMMITTER_EMAIL", "test@example.com")
+
+	if err := CreateTag(dir, "v1.2.3", "Release 1.2.3"); err != nil {
+		t.Fatal(err)
+	}
+	tag, found, err := LastTag(dir)
+	if err != nil || !found || tag != "v1.2.3" {
+		t.Fatalf("LastTag = %q, %v, %v", tag, found, err)
+	}
+}
+
+func TestPush_ToBareRemote(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	mustRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	bare := t.TempDir()
+	mustRun(t, bare, "init", "--bare", "-q", "-b", "main")
+	mustRun(t, dir, "remote", "add", "origin", bare)
+
+	t.Setenv("GIT_AUTHOR_NAME", "test")
+	t.Setenv("GIT_AUTHOR_EMAIL", "test@example.com")
+	t.Setenv("GIT_COMMITTER_NAME", "test")
+	t.Setenv("GIT_COMMITTER_EMAIL", "test@example.com")
+
+	if err := CreateTag(dir, "v0.1.0", "Release"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Push(dir, "origin", "HEAD", "v0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+
+	tag, found, err := LastTag(bare)
+	if err != nil || !found || tag != "v0.1.0" {
+		t.Fatalf("remote LastTag = %q, %v, %v", tag, found, err)
 	}
 }
 

@@ -7,14 +7,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type rootFlags struct {
+type rootOptions struct {
 	cfgFile string
 	dryRun  bool
 	verbose bool
 }
 
 func NewRootCmd() *cobra.Command {
-	flags := &rootFlags{}
+	flags := &rootOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "autotag",
