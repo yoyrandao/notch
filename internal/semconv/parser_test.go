@@ -1,4 +1,4 @@
-package conventional
+package semconv
 
 import "testing"
 

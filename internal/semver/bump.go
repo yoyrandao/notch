@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yoyrandao/autotag/internal/conventional"
+	"github.com/yoyrandao/autotag/internal/semconv"
 )
 
 type Bump int
@@ -32,7 +32,7 @@ type Options struct {
 }
 
 // Classify maps a single commit to its bump weight.
-func Classify(c conventional.Commit) Bump {
+func Classify(c semconv.Commit) Bump {
 	if c.Breaking {
 		return BumpMajor
 	}
@@ -49,7 +49,7 @@ func Classify(c conventional.Commit) Bump {
 }
 
 // Aggregate returns the highest bump across commits.
-func Aggregate(commits []conventional.Commit) Bump {
+func Aggregate(commits []semconv.Commit) Bump {
 	highest := BumpNone
 	for _, c := range commits {
 		if b := Classify(c); b > highest {

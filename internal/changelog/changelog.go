@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yoyrandao/autotag/internal/conventional"
+	"github.com/yoyrandao/autotag/internal/semconv"
 )
 
 type Kind int
@@ -29,7 +29,7 @@ type Entry struct {
 const fileHeader = "# Changelog\n\nAll notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).\n\n"
 
 // ClassifyEntry converts a parsed commit + its hash into an Entry.
-func ClassifyEntry(c conventional.Commit, hash string) Entry {
+func ClassifyEntry(c semconv.Commit, hash string) Entry {
 	e := Entry{Scope: c.Scope, Description: c.Description, Hash: hash}
 	switch {
 	case c.Breaking:

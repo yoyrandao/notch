@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yoyrandao/autotag/internal/conventional"
+	"github.com/yoyrandao/autotag/internal/semconv"
 )
 
 func mustParse(t *testing.T, s string) Version {
@@ -16,10 +16,10 @@ func mustParse(t *testing.T, s string) Version {
 	return v
 }
 
-func commits(specs ...string) []conventional.Commit {
-	out := make([]conventional.Commit, 0, len(specs))
+func commits(specs ...string) []semconv.Commit {
+	out := make([]semconv.Commit, 0, len(specs))
 	for _, s := range specs {
-		c, ok := conventional.Parse(s)
+		c, ok := semconv.Parse(s)
 		if !ok {
 			continue
 		}
@@ -43,7 +43,7 @@ func TestClassify(t *testing.T) {
 		{"feat: x\n\nBREAKING CHANGE: y", BumpMajor},
 	}
 	for _, tc := range cases {
-		c, ok := conventional.Parse(tc.msg)
+		c, ok := semconv.Parse(tc.msg)
 		if !ok {
 			t.Fatalf("parse %q failed", tc.msg)
 		}

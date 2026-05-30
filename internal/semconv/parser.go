@@ -1,5 +1,5 @@
 // Package conventional parses Conventional Commits messages.
-package conventional
+package semconv
 
 import (
 	"regexp"

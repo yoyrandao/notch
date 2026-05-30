@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/yoyrandao/autotag/internal/changelog"
-	"github.com/yoyrandao/autotag/internal/conventional"
 	"github.com/yoyrandao/autotag/internal/gitx"
 	"github.com/yoyrandao/autotag/internal/project"
+	"github.com/yoyrandao/autotag/internal/semconv"
 	"github.com/yoyrandao/autotag/internal/semver"
 	"github.com/yoyrandao/autotag/internal/ui"
 )
@@ -153,16 +153,16 @@ func (o *bumpOptions) lastVersion(repoDir string) (*semver.Version, string, erro
 }
 
 // collectCommits gathers conventional commits since the given ref (empty = all).
-func collectCommits(repoDir, ref string) (parsed []conventional.Commit, entries []changelog.Entry, skipped int, err error) {
+func collectCommits(repoDir, ref string) (parsed []semconv.Commit, entries []changelog.Entry, skipped int, err error) {
 	rawCommits, err := gitx.Log(repoDir, ref)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	parsed = make([]conventional.Commit, 0, len(rawCommits))
+	parsed = make([]semconv.Commit, 0, len(rawCommits))
 	entries = make([]changelog.Entry, 0, len(rawCommits))
 	for _, rc := range rawCommits {
-		c, ok := conventional.Parse(rc.Message)
+		c, ok := semconv.Parse(rc.Message)
 		if !ok {
 			skipped++
 			continue
