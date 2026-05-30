@@ -9,10 +9,10 @@ import (
 
 func TestRender_AllKinds(t *testing.T) {
 	entries := []Entry{
-		{Kind: KindFeat, Description: "add login", Hash: "abcdef1234"},
+		{Kind: KindFeature, Description: "add login", Hash: "abcdef1234"},
 		{Kind: KindFix, Scope: "api", Description: "nil ptr", Hash: "1234567abc"},
 		{Kind: KindOther, Description: "bump deps", Hash: "9999999"},
-		{Kind: KindBreaking, Scope: "core", Description: "drop v1", Hash: "ffffffff"},
+		{Kind: KindBreakingChange, Scope: "core", Description: "drop v1", Hash: "ffffffff"},
 	}
 	got := Render("0.2.0", "2026-05-30", entries)
 	want := `## [0.2.0] - 2026-05-30
@@ -52,7 +52,7 @@ func TestRender_OmitsEmpty(t *testing.T) {
 
 func TestRender_BreakingOnly(t *testing.T) {
 	entries := []Entry{
-		{Kind: KindBreaking, Description: "remove v1 api", Hash: "abcdef1"},
+		{Kind: KindBreakingChange, Description: "remove v1 api", Hash: "abcdef1"},
 	}
 	got := Render("1.0.0", "2026-05-30", entries)
 	if !strings.Contains(got, "### BREAKING CHANGES") {

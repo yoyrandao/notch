@@ -32,6 +32,7 @@ func LastTag(repoDir string) (tag string, found bool, err error) {
 		}
 		return "", false, fmt.Errorf("git describe: %w: %s", runErr, stderr.String())
 	}
+
 	return strings.TrimSpace(stdout.String()), true, nil
 }
 
@@ -42,6 +43,7 @@ func Log(repoDir, ref string) ([]Commit, error) {
 	if ref != "" {
 		args = append(args, ref+"..HEAD")
 	}
+
 	stdout, stderr, err := runGit(repoDir, args...)
 	if err != nil {
 		return nil, fmt.Errorf("git log: %w: %s", err, stderr.String())
@@ -68,6 +70,7 @@ func Log(repoDir, ref string) ([]Commit, error) {
 			Message: msg,
 		})
 	}
+
 	return out, nil
 }
 
@@ -95,6 +98,7 @@ func CreateCommit(repoDir, message string, paths []string) error {
 			return fmt.Errorf("git add: %w: %s", err, stderr.String())
 		}
 	}
+
 	stdout, stderr, err := runGit(repoDir, "commit", "-m", message)
 	if err != nil {
 		combined := stdout.String() + stderr.String()
@@ -103,6 +107,7 @@ func CreateCommit(repoDir, message string, paths []string) error {
 		}
 		return fmt.Errorf("git commit: %w: %s", err, combined)
 	}
+
 	return nil
 }
 
@@ -111,6 +116,7 @@ func CreateTag(repoDir, name, message string) error {
 	if _, stderr, err := runGit(repoDir, "tag", "-a", name, "-m", message); err != nil {
 		return fmt.Errorf("git tag: %w: %s", err, stderr.String())
 	}
+
 	return nil
 }
 
@@ -120,6 +126,7 @@ func Push(repoDir, remote string, refs ...string) error {
 	if _, stderr, err := runGit(repoDir, args...); err != nil {
 		return fmt.Errorf("git push: %w: %s", err, stderr.String())
 	}
+
 	return nil
 }
 

@@ -56,6 +56,7 @@ func Aggregate(commits []conventional.Commit) Bump {
 			highest = b
 		}
 	}
+
 	return highest
 }
 
@@ -69,7 +70,7 @@ func Aggregate(commits []conventional.Commit) Bump {
 // Returns error only when ReleaseAs is not strictly greater than last's base.
 func Next(last *Version, agg Bump, opts Options) (Version, error) {
 	if opts.ReleaseAs != nil {
-		return applyReleaseAs(last, *opts.ReleaseAs, opts.PreSuffix)
+		return nextAs(last, *opts.ReleaseAs, opts.PreSuffix)
 	}
 
 	if last == nil {
@@ -77,7 +78,7 @@ func Next(last *Version, agg Bump, opts Options) (Version, error) {
 		return applyPre(base, opts.PreSuffix, nil), nil
 	}
 
-	if agg == BumpNone && last.Prerelease == "" {
+	if agg == BumpNone && last.PreRelease == "" {
 		return *last, nil
 	}
 
@@ -85,19 +86,21 @@ func Next(last *Version, agg Bump, opts Options) (Version, error) {
 	return applyPre(base, opts.PreSuffix, last), nil
 }
 
-func applyReleaseAs(last *Version, ra Version, pre string) (Version, error) {
-	ra.Prerelease = ""
+func nextAs(last *Version, as Version, pre string) (Version, error) {
+	as.PreRelease = ""
 	if last != nil {
-		if Compare(ra, last.stripped()) <= 0 {
+		if Compare(as, last.stripped()) <= 0 {
 			return Version{}, fmt.Errorf(
-				"semver: release-as %s must be greater than last %s", ra, last.stripped(),
+				"semver: as %s must be greater than last %s", as, last.stripped(),
 			)
 		}
 	}
+
 	if pre != "" {
-		ra.Prerelease = pre + ".1"
+		as.PreRelease = pre + ".1"
 	}
-	return ra, nil
+
+	return as, nil
 }
 
 // nextBase computes the base (no prerelease) for the next version, given last
@@ -108,7 +111,7 @@ func applyReleaseAs(last *Version, ra Version, pre string) (Version, error) {
 // A major bump still advances the base.
 func nextBase(last Version, agg Bump) Version {
 	base := last.stripped()
-	inCycle := last.Prerelease != ""
+	inCycle := last.PreRelease != ""
 
 	if inCycle && agg != BumpMajor {
 		return base
@@ -145,14 +148,15 @@ func applyPre(base Version, suffix string, last *Version) Version {
 		return base
 	}
 
-	if last != nil && last.Prerelease != "" {
-		prevSuffix, prevN, ok := splitPre(last.Prerelease)
+	if last != nil && last.PreRelease != "" {
+		prevSuffix, prevN, ok := splitPre(last.PreRelease)
 		if ok && prevSuffix == suffix && Compare(base, last.stripped()) == 0 {
-			base.Prerelease = suffix + "." + strconv.FormatUint(prevN+1, 10)
+			base.PreRelease = suffix + "." + strconv.FormatUint(prevN+1, 10)
 			return base
 		}
 	}
-	base.Prerelease = suffix + ".1"
+
+	base.PreRelease = suffix + ".1"
 	return base
 }
 

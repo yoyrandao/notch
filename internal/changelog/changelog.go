@@ -13,9 +13,9 @@ type Kind int
 
 const (
 	KindOther Kind = iota
-	KindFeat
+	KindFeature
 	KindFix
-	KindBreaking
+	KindBreakingChange
 )
 
 // Entry is one line in the changelog.
@@ -33,9 +33,9 @@ func ClassifyEntry(c conventional.Commit, hash string) Entry {
 	e := Entry{Scope: c.Scope, Description: c.Description, Hash: hash}
 	switch {
 	case c.Breaking:
-		e.Kind = KindBreaking
+		e.Kind = KindBreakingChange
 	case c.Type == "feat":
-		e.Kind = KindFeat
+		e.Kind = KindFeature
 	case c.Type == "fix":
 		e.Kind = KindFix
 	default:
@@ -62,9 +62,9 @@ func Render(version, date string, entries []Entry) string {
 	}
 	for _, e := range entries {
 		switch e.Kind {
-		case KindBreaking:
+		case KindBreakingChange:
 			groups[0].entries = append(groups[0].entries, e)
-		case KindFeat:
+		case KindFeature:
 			groups[1].entries = append(groups[1].entries, e)
 		case KindFix:
 			groups[2].entries = append(groups[2].entries, e)

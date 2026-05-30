@@ -70,11 +70,11 @@ func TestAggregate(t *testing.T) {
 
 func TestNext(t *testing.T) {
 	type tc struct {
-		name   string
-		last   string // "" = nil
-		agg    Bump
-		pre    string
-		want   string
+		name string
+		last string // "" = nil
+		agg  Bump
+		pre  string
+		want string
 	}
 	cases := []tc{
 		{"no tag", "", BumpMajor, "", "0.1.0"},
@@ -137,7 +137,7 @@ func TestNextReleaseAs(t *testing.T) {
 			t.Fatalf("got %s", got)
 		}
 	})
-	t.Run("release-as with pre", func(t *testing.T) {
+	t.Run("as with pre", func(t *testing.T) {
 		last := mustParse(t, "v0.5.3")
 		target := mustParse(t, "1.0.0")
 		got, err := Next(&last, BumpNone, Options{ReleaseAs: &target, PreSuffix: "rc"})
@@ -148,7 +148,7 @@ func TestNextReleaseAs(t *testing.T) {
 			t.Fatalf("got %s", got)
 		}
 	})
-	t.Run("release-as not greater rejected", func(t *testing.T) {
+	t.Run("as not greater rejected", func(t *testing.T) {
 		last := mustParse(t, "v1.2.3")
 		target := mustParse(t, "1.2.3")
 		_, err := Next(&last, BumpNone, Options{ReleaseAs: &target})
@@ -156,7 +156,7 @@ func TestNextReleaseAs(t *testing.T) {
 			t.Fatalf("expected error, got %v", err)
 		}
 	})
-	t.Run("release-as lower rejected", func(t *testing.T) {
+	t.Run("as lower rejected", func(t *testing.T) {
 		last := mustParse(t, "v2.0.0")
 		target := mustParse(t, "1.5.0")
 		_, err := Next(&last, BumpNone, Options{ReleaseAs: &target})
@@ -164,7 +164,7 @@ func TestNextReleaseAs(t *testing.T) {
 			t.Fatal("expected error")
 		}
 	})
-	t.Run("release-as without last", func(t *testing.T) {
+	t.Run("as without last", func(t *testing.T) {
 		target := mustParse(t, "1.0.0")
 		got, err := Next(nil, BumpNone, Options{ReleaseAs: &target})
 		if err != nil {

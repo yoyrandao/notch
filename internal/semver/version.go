@@ -9,7 +9,7 @@ import (
 
 type Version struct {
 	Major, Minor, Patch uint64
-	Prerelease          string
+	PreRelease          string
 }
 
 func Parse(s string) (Version, error) {
@@ -41,19 +41,19 @@ func Parse(s string) (Version, error) {
 		}
 		nums[i] = n
 	}
-	return Version{Major: nums[0], Minor: nums[1], Patch: nums[2], Prerelease: pre}, nil
+	return Version{Major: nums[0], Minor: nums[1], Patch: nums[2], PreRelease: pre}, nil
 }
 
 func (v Version) String() string {
 	s := fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-	if v.Prerelease != "" {
-		s += "-" + v.Prerelease
+	if v.PreRelease != "" {
+		s += "-" + v.PreRelease
 	}
 	return s
 }
 
 func (v Version) stripped() Version {
-	v.Prerelease = ""
+	v.PreRelease = ""
 	return v
 }
 
@@ -68,7 +68,7 @@ func Compare(a, b Version) int {
 	if c := cmpUint(a.Patch, b.Patch); c != 0 {
 		return c
 	}
-	return comparePre(a.Prerelease, b.Prerelease)
+	return comparePre(a.PreRelease, b.PreRelease)
 }
 
 func cmpUint(a, b uint64) int {

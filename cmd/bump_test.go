@@ -167,7 +167,7 @@ func TestBump_ReleaseAs(t *testing.T) {
 	gitRun(t, dir, "tag", "v0.5.0")
 	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: more")
 
-	stdout, _, err := runBump(t, dir, "--dry-run", "--release-as", "1.0.0")
+	stdout, _, err := runBump(t, dir, "--dry-run", "--as", "1.0.0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestBump_ReleaseAs_NotGreater(t *testing.T) {
 	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
 	gitRun(t, dir, "tag", "v1.2.3")
 
-	_, _, err := runBump(t, dir, "--release-as", "1.0.0")
+	_, _, err := runBump(t, dir, "--as", "1.0.0")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -304,6 +304,92 @@ func TestBump_FullRelease_WithPush(t *testing.T) {
 	tag, found, err := lastTag(bare)
 	if err != nil || !found || tag != "v0.1.0" {
 		t.Fatalf("remote tag = %q found=%v err=%v", tag, found, err)
+	}
+}
+
+// --- config-driven bump tests ---
+
+func writeConfig(t *testing.T, dir, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, "test-autotag.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestBump_ConfigPrefix(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	cfg := writeConfig(t, dir, "tag:\n  prefix: \"rel-\"\n")
+
+	stdout, _, err := runBump(t, dir, "--dry-run", "--config", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(stdout) != "rel-0.1.0" {
+		t.Fatalf("got %q, want %q", strings.TrimSpace(stdout), "rel-0.1.0")
+	}
+}
+
+func TestBump_ConfigChangelogPath(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	cfg := writeConfig(t, dir, "changelog:\n  path: \"CHANGES.md\"\n")
+
+	_, _, err := runBump(t, dir, "--no-push", "--config", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "CHANGES.md")); statErr != nil {
+		t.Fatal("CHANGES.md not created")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "CHANGELOG.md")); !os.IsNotExist(statErr) {
+		t.Fatal("CHANGELOG.md should not exist")
+	}
+}
+
+func TestBump_ConfigNoPush(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	bare := t.TempDir()
+	gitRun(t, bare, "init", "--bare", "-q", "-b", "main")
+	gitRun(t, dir, "remote", "add", "origin", bare)
+
+	cfg := writeConfig(t, dir, "tag:\n  push: false\n")
+
+	_, _, err := runBump(t, dir, "--config", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, found, _ := lastTag(bare)
+	if found {
+		t.Fatal("tag was pushed despite config push: false")
+	}
+}
+
+func TestBump_FlagOverridesConfig(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	cfg := writeConfig(t, dir, "changelog:\n  path: \"CHANGES.md\"\n")
+
+	_, _, err := runBump(t, dir, "--no-push", "--config", cfg, "--changelog", "CHANGELOG.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "CHANGELOG.md")); statErr != nil {
+		t.Fatal("CHANGELOG.md not created (flag should override config)")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "CHANGES.md")); !os.IsNotExist(statErr) {
+		t.Fatal("CHANGES.md should not exist")
 	}
 }
 

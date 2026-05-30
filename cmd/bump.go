@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -12,12 +13,14 @@ import (
 	"github.com/yoyrandao/autotag/internal/conventional"
 	"github.com/yoyrandao/autotag/internal/gitx"
 	"github.com/yoyrandao/autotag/internal/semver"
+	"github.com/yoyrandao/autotag/internal/ui"
 )
 
 type bumpOptions struct {
 	*rootOptions
-	preFlag       string
-	releaseAs     string
+	repository    string
+	pre           string
+	as            string
 	noPush        bool
 	remote        string
 	changelogPath string
@@ -34,57 +37,129 @@ func NewBumpCmd(root *rootOptions) *cobra.Command {
 		Short: "Compute next version, update CHANGELOG, tag and push",
 		Long: `bump reads conventional commits since the last reachable git tag,
 computes the next semantic version, updates CHANGELOG.md, creates a release
-commit, an annotated tag, and pushes them to the remote.
+commit, an annotated tag, which can be pushed to a remote.
 
---dry-run skips all side effects (no file write, no commit, no tag, no push)
-and prints the planned release to stderr.
-
-If no commits contributed a bump (and no --pre / --release-as is set), bump
-exits 0 and prints "nothing to release" to stderr.`,
+If no commits contributed a bump (and no --pre / --as is set), only "nothing to release" will be printed.`,
 		RunE: options.runE,
 	}
 
-	cmd.Flags().StringVar(&options.preFlag, "pre", "", "prerelease suffix (e.g. rc, beta)")
-	cmd.Flags().StringVar(&options.releaseAs, "release-as", "", "force next version (e.g. 1.0.0); must be > last tag")
+	cmd.Flags().StringVar(&options.repository, "repo", "", "path to git repository (default: .)")
+	cmd.Flags().StringVar(&options.pre, "pre", "", "prerelease suffix (e.g. rc, beta)")
+	cmd.Flags().StringVar(&options.as, "as", "", "force next version (e.g. 1.0.0); must be > last tag")
 	cmd.Flags().BoolVar(&options.noPush, "no-push", false, "do not push commit/tag to remote")
 	cmd.Flags().StringVar(&options.remote, "remote", "origin", "git remote name for push")
-	cmd.Flags().StringVar(&options.changelogPath, "changelog", "CHANGELOG.md", "changelog path relative to --repo")
+	cmd.Flags().StringVar(&options.changelogPath, "changelog", "", "changelog path relative to --repo")
 
 	return cmd
 }
 
+// release holds everything computed for a planned release.
+type release struct {
+	tag     string
+	version string
+	section string
+	last    *semver.Version
+}
+
 func (o *bumpOptions) runE(cmd *cobra.Command, args []string) error {
-	repoDir, err := os.Getwd()
+	o.applyConfig(cmd)
+
+	repoDir, err := o.resolveRepositoryDirectory()
 	if err != nil {
 		return err
 	}
 
-	tagStr, found, err := gitx.LastTag(repoDir)
+	last, lastTag, err := o.lastVersion(repoDir)
 	if err != nil {
 		return err
 	}
 
-	var last *semver.Version
-	if found {
-		v, err := semver.Parse(tagStr)
-		if err != nil {
-			return fmt.Errorf("last tag %q is not semver: %w", tagStr, err)
+	parsed, entries, skipped, err := collectCommits(repoDir, lastTag)
+	if err != nil {
+		return err
+	}
+
+	opts, err := o.semverOptions()
+	if err != nil {
+		return err
+	}
+
+	agg := semver.Aggregate(parsed)
+	if o.verbose {
+		o.logPlan(cmd, last, len(parsed), skipped, agg)
+	}
+
+	if nothingToRelease(last, agg, opts) {
+		c := ui.New(cmd.ErrOrStderr())
+		fmt.Fprintln(cmd.ErrOrStderr(), c.Yellow("nothing to release"))
+		return nil
+	}
+
+	rel, err := o.computeRelease(last, agg, opts, entries)
+	if err != nil {
+		return err
+	}
+
+	if o.dryRun {
+		o.printDryRun(cmd, rel)
+		return nil
+	}
+
+	return o.executeRelease(cmd, repoDir, rel)
+}
+
+// applyConfig fills options from config for flags not explicitly set on the CLI.
+func (o *bumpOptions) applyConfig(cmd *cobra.Command) {
+	cfg := o.config
+	if !cmd.Flags().Changed("repo") {
+		o.repository = cfg.Repository
+	}
+	if !cmd.Flags().Changed("changelog") {
+		o.changelogPath = cfg.Changelog.Path
+	}
+	if !cmd.Flags().Changed("no-push") {
+		o.noPush = !cfg.Tag.Push
+	}
+}
+
+// resolveRepositoryDirectory turns the configured repo path into an absolute directory.
+func (o *bumpOptions) resolveRepositoryDirectory() (string, error) {
+	if o.repository != "." && o.repository != "" {
+		if filepath.IsAbs(o.repository) {
+			return o.repository, nil
 		}
-		last = &v
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(cwd, o.repository), nil
 	}
+	return os.Getwd()
+}
 
-	ref := ""
-	if found {
-		ref = tagStr
+// lastVersion reads the most recent tag and parses it. Returns the parsed
+// version, the raw tag string (git ref), and nil version if no tag exists.
+func (o *bumpOptions) lastVersion(repoDir string) (*semver.Version, string, error) {
+	tag, found, err := gitx.LastTag(repoDir)
+	if err != nil || !found {
+		return nil, "", err
 	}
+	v, err := semver.Parse(strings.TrimPrefix(tag, o.config.Tag.Prefix))
+	if err != nil {
+		return nil, "", fmt.Errorf("last tag %q is not semver: %w", tag, err)
+	}
+	return &v, tag, nil
+}
+
+// collectCommits gathers conventional commits since the given ref (empty = all).
+func collectCommits(repoDir, ref string) (parsed []conventional.Commit, entries []changelog.Entry, skipped int, err error) {
 	rawCommits, err := gitx.Log(repoDir, ref)
 	if err != nil {
-		return err
+		return nil, nil, 0, err
 	}
 
-	parsed := make([]conventional.Commit, 0, len(rawCommits))
-	entries := make([]changelog.Entry, 0, len(rawCommits))
-	skipped := 0
+	parsed = make([]conventional.Commit, 0, len(rawCommits))
+	entries = make([]changelog.Entry, 0, len(rawCommits))
 	for _, rc := range rawCommits {
 		c, ok := conventional.Parse(rc.Message)
 		if !ok {
@@ -94,82 +169,100 @@ func (o *bumpOptions) runE(cmd *cobra.Command, args []string) error {
 		parsed = append(parsed, c)
 		entries = append(entries, changelog.ClassifyEntry(c, rc.Hash))
 	}
+	return parsed, entries, skipped, nil
+}
 
-	agg := semver.Aggregate(parsed)
-
-	opts := semver.Options{PreSuffix: o.preFlag}
-	if o.releaseAs != "" {
-		ra, err := semver.Parse(o.releaseAs)
+// semverOptions builds bump options from the --pre / --as flags.
+func (o *bumpOptions) semverOptions() (semver.Options, error) {
+	opts := semver.Options{PreSuffix: o.pre}
+	if o.as != "" {
+		ra, err := semver.Parse(o.as)
 		if err != nil {
-			return fmt.Errorf("--release-as %q is not semver: %w", o.releaseAs, err)
+			return opts, fmt.Errorf("--as %q is not semver: %w", o.as, err)
 		}
 		opts.ReleaseAs = &ra
 	}
+	return opts, nil
+}
 
-	if o.verbose {
-		lastStr := "<none>"
-		if last != nil {
-			lastStr = "v" + last.String()
-		}
-		fmt.Fprintf(cmd.ErrOrStderr(),
-			"last=%s commits=%d skipped=%d bump=%v pre=%q release-as=%q dry-run=%v no-push=%v remote=%s\n",
-			lastStr, len(parsed), skipped, agg, o.preFlag, o.releaseAs, o.dryRun, o.noPush, o.remote,
-		)
-	}
+func nothingToRelease(last *semver.Version, agg semver.Bump, opts semver.Options) bool {
+	return last != nil && agg == semver.BumpNone &&
+		opts.PreSuffix == "" && opts.ReleaseAs == nil && last.PreRelease == ""
+}
 
-	if last != nil && agg == semver.BumpNone && opts.PreSuffix == "" && opts.ReleaseAs == nil && last.Prerelease == "" {
-		fmt.Fprintln(cmd.ErrOrStderr(), "nothing to release")
-		return nil
-	}
-
+// computeRelease derives the next version and renders the changelog section.
+func (o *bumpOptions) computeRelease(last *semver.Version, agg semver.Bump, opts semver.Options, entries []changelog.Entry) (release, error) {
 	next, err := semver.Next(last, agg, opts)
 	if err != nil {
-		return err
+		return release{}, err
 	}
-
 	version := next.String()
-	tag := "v" + version
 	date := time.Now().UTC().Format("2006-01-02")
-	section := changelog.Render(version, date, entries)
+	return release{
+		tag:     o.config.Tag.Prefix + version,
+		version: version,
+		section: changelog.Render(version, date, entries),
+		last:    last,
+	}, nil
+}
 
-	if o.dryRun {
-		fmt.Fprintln(cmd.OutOrStdout(), tag)
-		fmt.Fprintf(cmd.ErrOrStderr(),
-			"dry-run: would update %s, commit \"chore(release): %s\", tag %s",
-			o.changelogPath, tag, tag,
-		)
-		if !o.noPush {
-			fmt.Fprintf(cmd.ErrOrStderr(), ", push HEAD and %s to %s", tag, o.remote)
-		}
-		fmt.Fprintln(cmd.ErrOrStderr())
-		fmt.Fprintln(cmd.ErrOrStderr(), "--- CHANGELOG section ---")
-		fmt.Fprint(cmd.ErrOrStderr(), section)
-		return nil
+func (o *bumpOptions) logPlan(cmd *cobra.Command, last *semver.Version, commits, skipped int, agg semver.Bump) {
+	lastStr := "<none>"
+	if last != nil {
+		lastStr = o.config.Tag.Prefix + last.String()
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"last=%s commits=%d skipped=%d bump=%v pre=%q as=%q dry-run=%v no-push=%v remote=%s\n",
+		lastStr, commits, skipped, agg, o.pre, o.as, o.dryRun, o.noPush, o.remote,
+	)
+}
+
+func (o *bumpOptions) printDryRun(cmd *cobra.Command, rel release) {
+	out, errOut := cmd.OutOrStdout(), cmd.ErrOrStderr()
+	c := ui.New(errOut)
+
+	steps := []string{
+		fmt.Sprintf("update %s", o.changelogPath),
+		fmt.Sprintf("commit %q", "chore(release): "+rel.tag),
+		fmt.Sprintf("tag %s", c.Green(rel.tag)),
+	}
+	if !o.noPush {
+		steps = append(steps, fmt.Sprintf("push HEAD and %s to %s", c.Green(rel.tag), o.remote))
 	}
 
+	fmt.Fprintln(out, rel.tag)
+	fmt.Fprintf(errOut, "%s would %s\n", c.Bold(c.Cyan("dry-run:")), strings.Join(steps, ", "))
+	fmt.Fprintln(errOut, c.Dim("--- CHANGELOG section ---"))
+	fmt.Fprint(errOut, rel.section)
+}
+
+// executeRelease writes the changelog, commits, tags and optionally pushes.
+func (o *bumpOptions) executeRelease(cmd *cobra.Command, repoDir string, rel release) error {
 	absChangelog := o.changelogPath
 	if !filepath.IsAbs(absChangelog) {
 		absChangelog = filepath.Join(repoDir, o.changelogPath)
 	}
-	if err := changelog.Update(absChangelog, section); err != nil {
+	if err := changelog.Update(absChangelog, rel.section); err != nil {
 		return err
 	}
 
-	if err := gitx.CreateCommit(repoDir, "chore(release): "+tag, []string{o.changelogPath}); err != nil {
+	if err := gitx.CreateCommit(repoDir, "chore(release): "+rel.tag, []string{o.changelogPath}); err != nil {
 		return err
 	}
 
-	tagMessage := fmt.Sprintf("Release %s\n\n%s", tag, section)
-	if err := gitx.CreateTag(repoDir, tag, tagMessage); err != nil {
+	tagMessage := fmt.Sprintf("Release %s\n\n%s", rel.tag, rel.section)
+	if err := gitx.CreateTag(repoDir, rel.tag, tagMessage); err != nil {
 		return err
 	}
 
 	if !o.noPush {
-		if err := gitx.Push(repoDir, o.remote, "HEAD", tag); err != nil {
+		if err := gitx.Push(repoDir, o.remote, "HEAD", rel.tag); err != nil {
 			return err
 		}
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(), tag)
+	c := ui.New(cmd.ErrOrStderr())
+	fmt.Fprintf(cmd.ErrOrStderr(), "%s released %s\n", c.Green("✓"), c.Bold(rel.tag))
+	fmt.Fprintln(cmd.OutOrStdout(), rel.tag)
 	return nil
 }
