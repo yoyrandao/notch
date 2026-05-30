@@ -12,6 +12,7 @@ import (
 	"github.com/yoyrandao/autotag/internal/changelog"
 	"github.com/yoyrandao/autotag/internal/conventional"
 	"github.com/yoyrandao/autotag/internal/gitx"
+	"github.com/yoyrandao/autotag/internal/project"
 	"github.com/yoyrandao/autotag/internal/semver"
 	"github.com/yoyrandao/autotag/internal/ui"
 )
@@ -101,7 +102,7 @@ func (o *bumpOptions) runE(cmd *cobra.Command, args []string) error {
 	}
 
 	if o.dryRun {
-		o.printDryRun(cmd, rel)
+		o.printDryRun(cmd, repoDir, rel)
 		return nil
 	}
 
@@ -217,15 +218,20 @@ func (o *bumpOptions) logPlan(cmd *cobra.Command, last *semver.Version, commits,
 	)
 }
 
-func (o *bumpOptions) printDryRun(cmd *cobra.Command, rel release) {
+func (o *bumpOptions) printDryRun(cmd *cobra.Command, repoDir string, rel release) {
 	out, errOut := cmd.OutOrStdout(), cmd.ErrOrStderr()
 	c := ui.New(errOut)
 
 	steps := []string{
 		fmt.Sprintf("update %s", o.changelogPath),
+	}
+	for _, f := range project.Detect(repoDir) {
+		steps = append(steps, fmt.Sprintf("patch %s", f))
+	}
+	steps = append(steps,
 		fmt.Sprintf("commit %q", "chore(release): "+rel.tag),
 		fmt.Sprintf("tag %s", c.Green(rel.tag)),
-	}
+	)
 	if !o.noPush {
 		steps = append(steps, fmt.Sprintf("push HEAD and %s to %s", c.Green(rel.tag), o.remote))
 	}
@@ -246,7 +252,16 @@ func (o *bumpOptions) executeRelease(cmd *cobra.Command, repoDir string, rel rel
 		return err
 	}
 
-	if err := gitx.CreateCommit(repoDir, "chore(release): "+rel.tag, []string{o.changelogPath}); err != nil {
+	// Patch tool-specific project files (Chart.yaml, package.json, ...) with the
+	// plain semver. Absent project / missing version field => nothing staged,
+	// no error: behaves exactly like a plain repo.
+	patched, err := project.Patch(repoDir, rel.version)
+	if err != nil {
+		return err
+	}
+
+	paths := append([]string{o.changelogPath}, patched...)
+	if err := gitx.CreateCommit(repoDir, "chore(release): "+rel.tag, paths); err != nil {
 		return err
 	}
 

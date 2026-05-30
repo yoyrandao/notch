@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -422,4 +423,114 @@ func headCommitSubject(t *testing.T, dir string) string {
 		t.Fatalf("log: %v: %s", err, out)
 	}
 	return strings.TrimSpace(string(out))
+}
+
+func headFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", dir, "show", "HEAD", "--name-only", "--format=").CombinedOutput()
+	if err != nil {
+		t.Fatalf("show: %v: %s", err, out)
+	}
+	var files []string
+	for l := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			files = append(files, l)
+		}
+	}
+	return files
+}
+
+// --- tool-specific project patching ---
+
+func TestBump_PatchHelm(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "Chart.yaml"),
+		[]byte("apiVersion: v2\nname: app\nversion: 0.0.0\nappVersion: \"1.0\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "Chart.yaml")
+	gitRun(t, dir, "commit", "-m", "feat: init")
+
+	if _, _, err := runBump(t, dir, "--no-push"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "Chart.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "apiVersion: v2\nname: app\nversion: 0.1.0\nappVersion: \"1.0\"\n"
+	if string(got) != want {
+		t.Fatalf("Chart.yaml:\n%q\nwant:\n%q", got, want)
+	}
+	if files := headFiles(t, dir); !slices.Contains(files, "Chart.yaml") || !slices.Contains(files, "CHANGELOG.md") {
+		t.Fatalf("release commit files = %v", files)
+	}
+}
+
+func TestBump_PatchNpm(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "package.json"),
+		[]byte("{\n  \"name\": \"app\",\n  \"version\": \"0.0.0\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "package.json")
+	gitRun(t, dir, "commit", "-m", "feat: init")
+
+	if _, _, err := runBump(t, dir, "--no-push"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "{\n  \"name\": \"app\",\n  \"version\": \"0.1.0\"\n}\n"
+	if string(got) != want {
+		t.Fatalf("package.json:\n%q\nwant:\n%q", got, want)
+	}
+	if files := headFiles(t, dir); !slices.Contains(files, "package.json") {
+		t.Fatalf("release commit files = %v", files)
+	}
+}
+
+func TestBump_NoToolProject_OnlyChangelog(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	if _, _, err := runBump(t, dir, "--no-push"); err != nil {
+		t.Fatal(err)
+	}
+	if files := headFiles(t, dir); len(files) != 1 || files[0] != "CHANGELOG.md" {
+		t.Fatalf("expected only CHANGELOG.md, got %v", files)
+	}
+}
+
+func TestBump_DryRun_PatchPreview(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "Chart.yaml"),
+		[]byte("version: 0.0.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "Chart.yaml")
+	gitRun(t, dir, "commit", "-m", "feat: init")
+
+	_, stderr, err := runBump(t, dir, "--dry-run", "--no-push")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr, "patch Chart.yaml") {
+		t.Fatalf("stderr missing patch step:\n%s", stderr)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "Chart.yaml")); string(got) != "version: 0.0.0\n" {
+		t.Fatalf("dry-run mutated file: %q", got)
+	}
 }
