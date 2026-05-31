@@ -21,15 +21,15 @@ func TestRender_AllKinds(t *testing.T) {
 
 - core: drop v1 (fffffff)
 
-### Added
+### Features and enhancements
 
 - add login (abcdef1)
 
-### Fixed
+### Bug fixes
 
 - api: nil ptr (1234567)
 
-### Changed
+### Additional changes
 
 - bump deps (9999999)
 
@@ -42,11 +42,11 @@ func TestRender_AllKinds(t *testing.T) {
 func TestRender_OmitsEmpty(t *testing.T) {
 	entries := []Entry{{Kind: KindFix, Description: "x", Hash: "abcdefg"}}
 	got := Render("0.0.1", "2026-01-01", entries)
-	if strings.Contains(got, "BREAKING") || strings.Contains(got, "Added") || strings.Contains(got, "Changed") {
+	if strings.Contains(got, "BREAKING") || strings.Contains(got, "Features") || strings.Contains(got, "Additional") {
 		t.Fatalf("empty sections leaked:\n%s", got)
 	}
-	if !strings.Contains(got, "### Fixed") {
-		t.Fatalf("missing Fixed:\n%s", got)
+	if !strings.Contains(got, "### Bug fixes") {
+		t.Fatalf("missing Bug fixes:\n%s", got)
 	}
 }
 
@@ -58,8 +58,8 @@ func TestRender_BreakingOnly(t *testing.T) {
 	if !strings.Contains(got, "### BREAKING CHANGES") {
 		t.Fatalf("missing BREAKING CHANGES:\n%s", got)
 	}
-	if strings.Contains(got, "### Added") {
-		t.Fatalf("should not contain Added")
+	if strings.Contains(got, "### Features and enhancements") {
+		t.Fatalf("should not contain Features and enhancements")
 	}
 }
 

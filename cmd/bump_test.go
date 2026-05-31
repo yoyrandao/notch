@@ -235,9 +235,9 @@ func TestBump_FullRelease_NoPush(t *testing.T) {
 		"## [0.1.0]",
 		"### BREAKING CHANGES",
 		"drop legacy",
-		"### Added",
+		"### Features and enhancements",
 		"login",
-		"### Fixed",
+		"### Bug fixes",
 		"api: nil ptr",
 	} {
 		if !strings.Contains(cl, want) {
