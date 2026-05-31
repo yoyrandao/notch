@@ -1,8 +1,12 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      as:
+        type: string
+        description: "Release as specific version"
+        required: false
 
 permissions:
   contents: write
@@ -35,7 +39,12 @@ jobs:
 
       - name: Self-bump
         id: bump
-        run: echo "tag=$(go run . bump)" >> "$GITHUB_OUTPUT"
+        env:
+          AS: ${{ inputs.as }}
+        run: |
+          args=(bump)
+          if [ -n "$AS" ]; then args+=(--as "$AS"); fi
+          echo "tag=$(go run . "${args[@]}")" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
         if: steps.bump.outputs.tag != ''
