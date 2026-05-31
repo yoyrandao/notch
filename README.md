@@ -18,11 +18,35 @@ NOTE: **Before version 1.0.0 a breaking change only bumps the minor - the projec
 
 ## Install
 
+**With Go:**
+
 ```sh
-go install github.com/yoyrandao/notch@latest
+go install github.com/yoyrandao/notch@latest      # latest
+go install github.com/yoyrandao/notch@v0.5.0      # specific version
 ```
 
-**// TODO: installation documentation**
+**Prebuilt binary — Linux / macOS:**
+
+```sh
+os=$(uname -s | tr '[:upper:]' '[:lower:]')          # linux or darwin
+arch=$(uname -m); case $arch in x86_64) arch=amd64;; aarch64) arch=arm64;; esac
+curl -sSfL "https://github.com/yoyrandao/notch/releases/latest/download/notch_${os}_${arch}.tar.gz" | tar -xz notch
+sudo install notch /usr/local/bin/ && rm notch
+```
+
+Want a specific version? Swap `latest/download` for `download/v0.5.0`. On macOS the binaries
+aren't notarized, so if Gatekeeper complains:
+`xattr -d com.apple.quarantine /usr/local/bin/notch`.
+
+**Prebuilt binary — Windows (PowerShell):**
+
+```powershell
+$arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+Invoke-WebRequest "https://github.com/yoyrandao/notch/releases/latest/download/notch_windows_$arch.zip" -OutFile notch.zip
+Expand-Archive -Force notch.zip .    # extracts notch.exe — move it somewhere on your PATH
+```
+
+Same here — `latest/download` → `download/v0.5.0` to pin a version.
 
 ## Quick start
 
