@@ -27,6 +27,12 @@ type ChangelogConfig struct {
 // wrappers such as Azure DevOps's "Merged PR 123: <message>". Empty disables it.
 type CommitConfig struct {
 	SubjectPattern string `koanf:"subject_pattern"`
+
+	// ReleaseMessage is the commit message for the release commit. Tokens {tag}
+	// and {version} are substituted with the prefixed tag (e.g. v1.2.3) and the
+	// plain semver (e.g. 1.2.3). Append "[skip ci]" to keep CI from triggering
+	// on the release commit.
+	ReleaseMessage string `koanf:"release_message"`
 }
 
 type Config struct {
@@ -48,11 +54,15 @@ tag:
 changelog:
   path: CHANGELOG.md
 
-# Extract the conventional message from wrapped merge-commit subjects.
-# Capture group 1 is parsed as the commit. Disabled when unset.
-# Example for Azure DevOps squash merges:
 # commit:
+#   # Extract the conventional message from wrapped merge-commit subjects.
+#   # Capture group 1 is parsed as the commit. Disabled when unset.
+#   # Example for Azure DevOps squash merges:
 #   subject_pattern: '^Merged PR \d+: (.+)$'
+#
+#   # Release commit message. Tokens: {tag} (e.g. v1.2.3), {version} (e.g. 1.2.3).
+#   # Append "[skip ci]" to stop CI triggering on the release commit.
+#   release_message: "chore(release): {tag}"
 `
 }
 
@@ -71,6 +81,7 @@ func defaultConfig() Config {
 		Repository: ".",
 		Tag:        TagConfig{Prefix: "v", Push: true},
 		Changelog:  ChangelogConfig{Path: "CHANGELOG.md"},
+		Commit:     CommitConfig{ReleaseMessage: "chore(release): {tag}"},
 	}
 }
 

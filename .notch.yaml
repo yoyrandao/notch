@@ -6,3 +6,6 @@ tag:
 
 changelog:
   path: CHANGELOG.md
+
+commit:
+  release_message: "chore(release): {tag} [skip ci]"

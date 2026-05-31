@@ -233,6 +233,13 @@ func (o *bumpOptions) computeRelease(last *semver.Version, agg semver.Bump, opts
 	}, nil
 }
 
+// releaseCommitMessage renders the configured release-commit message, substituting
+// {tag} (prefixed, e.g. v1.2.3) and {version} (plain semver, e.g. 1.2.3).
+func (o *bumpOptions) releaseCommitMessage(rel release) string {
+	return strings.NewReplacer("{tag}", rel.tag, "{version}", rel.version).
+		Replace(o.config.Commit.ReleaseMessage)
+}
+
 func (o *bumpOptions) logPlan(cmd *cobra.Command, last *semver.Version, commits, skipped int, agg semver.Bump) {
 	lastStr := "<none>"
 	if last != nil {
@@ -255,7 +262,7 @@ func (o *bumpOptions) printDryRun(cmd *cobra.Command, repoDir string, rel releas
 		steps = append(steps, fmt.Sprintf("patch %s", f))
 	}
 	steps = append(steps,
-		fmt.Sprintf("commit %q", "chore(release): "+rel.tag),
+		fmt.Sprintf("commit %q", o.releaseCommitMessage(rel)),
 		fmt.Sprintf("tag %s", c.Green(rel.tag)),
 	)
 	if !o.noPush {
@@ -287,7 +294,7 @@ func (o *bumpOptions) executeRelease(cmd *cobra.Command, repoDir string, rel rel
 	}
 
 	paths := append([]string{o.changelogPath}, patched...)
-	if err := gitx.CreateCommit(repoDir, "chore(release): "+rel.tag, paths); err != nil {
+	if err := gitx.CreateCommit(repoDir, o.releaseCommitMessage(rel), paths); err != nil {
 		return err
 	}
 

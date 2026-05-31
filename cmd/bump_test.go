@@ -529,6 +529,21 @@ func TestBump_ConfigNoPush(t *testing.T) {
 	}
 }
 
+func TestBump_ConfigReleaseMessage(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	cfg := writeConfig(t, dir, "commit:\n  release_message: \"rel {version} [skip ci]\"\n")
+
+	if _, _, err := runBump(t, dir, "--no-push", "--config", cfg); err != nil {
+		t.Fatal(err)
+	}
+	if got := headCommitSubject(t, dir); got != "rel 0.1.0 [skip ci]" {
+		t.Fatalf("head subject = %q, want %q", got, "rel 0.1.0 [skip ci]")
+	}
+}
+
 func TestBump_FlagOverridesConfig(t *testing.T) {
 	gitAvailable(t)
 	setGitEnv(t)

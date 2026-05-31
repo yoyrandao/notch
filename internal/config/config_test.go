@@ -23,6 +23,9 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.Changelog.Path != "CHANGELOG.md" {
 		t.Errorf("Changelog.Path = %q, want %q", cfg.Changelog.Path, "CHANGELOG.md")
 	}
+	if cfg.Commit.ReleaseMessage != "chore(release): {tag}" {
+		t.Errorf("Commit.ReleaseMessage = %q, want %q", cfg.Commit.ReleaseMessage, "chore(release): {tag}")
+	}
 }
 
 func TestLoad_PartialFile(t *testing.T) {
