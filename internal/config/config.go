@@ -1,4 +1,4 @@
-// Package config loads autotag configuration via koanf.
+// Package config loads notch configuration via koanf.
 package config
 
 import (
@@ -36,7 +36,7 @@ type Config struct {
 	Commit     CommitConfig    `koanf:"commit"`
 }
 
-func DefaultPath() string { return ".autotag.yaml" }
+func DefaultPath() string { return ".notch.yaml" }
 
 func DefaultYAML() string {
 	return `repository: .

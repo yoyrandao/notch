@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yoyrandao/autotag/internal/semconv"
+	"github.com/yoyrandao/notch/internal/semconv"
 )
 
 type Bump int

@@ -1,4 +1,4 @@
-BIN := autotag
+BIN := notch
 PKG := ./...
 
 .PHONY: build test vet tidy run clean

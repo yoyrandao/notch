@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yoyrandao/autotag/internal/semconv"
+	"github.com/yoyrandao/notch/internal/semconv"
 )
 
 type Kind int
@@ -56,9 +56,9 @@ func Render(version, date string, entries []Entry) string {
 	}
 	groups := []group{
 		{"BREAKING CHANGES", nil},
-		{"Added", nil},
-		{"Fixed", nil},
-		{"Changed", nil},
+		{"Features and enhancements", nil},
+		{"Bug fixes", nil},
+		{"Additional changes", nil},
 	}
 	for _, e := range entries {
 		switch e.Kind {

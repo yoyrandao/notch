@@ -16,7 +16,7 @@ func NewVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("autotag %s (commit %s)\n", version, commit)
+			fmt.Printf("notch %s (commit %s)\n", version, commit)
 		},
 	}
 }

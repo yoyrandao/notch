@@ -466,7 +466,7 @@ func TestBump_InvalidCommitPattern(t *testing.T) {
 
 func writeConfig(t *testing.T, dir, content string) string {
 	t.Helper()
-	path := filepath.Join(dir, "test-autotag.yaml")
+	path := filepath.Join(dir, "test-notch.yaml")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}

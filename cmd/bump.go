@@ -10,12 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/yoyrandao/autotag/internal/changelog"
-	"github.com/yoyrandao/autotag/internal/gitx"
-	"github.com/yoyrandao/autotag/internal/project"
-	"github.com/yoyrandao/autotag/internal/semconv"
-	"github.com/yoyrandao/autotag/internal/semver"
-	"github.com/yoyrandao/autotag/internal/ui"
+	"github.com/yoyrandao/notch/internal/changelog"
+	"github.com/yoyrandao/notch/internal/gitx"
+	"github.com/yoyrandao/notch/internal/project"
+	"github.com/yoyrandao/notch/internal/semconv"
+	"github.com/yoyrandao/notch/internal/semver"
+	"github.com/yoyrandao/notch/internal/ui"
 )
 
 type bumpOptions struct {

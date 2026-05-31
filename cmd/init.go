@@ -6,14 +6,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/yoyrandao/autotag/internal/config"
+	"github.com/yoyrandao/notch/internal/config"
 )
 
 func NewInitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
-		Short: "Create default .autotag.yaml in current directory",
-		Long:  `init writes .autotag.yaml with all default values. Exits with error if file already exists.`,
+		Short: "Create default .notch.yaml in current directory",
+		Long:  `init writes .notch.yaml with all default values. Exits with error if file already exists.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := config.DefaultPath()
 			if _, err := os.Stat(path); err == nil {

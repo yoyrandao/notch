@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yoyrandao/autotag/internal/semconv"
+	"github.com/yoyrandao/notch/internal/semconv"
 )
 
 func mustParse(t *testing.T, s string) Version {

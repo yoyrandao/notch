@@ -1,6 +1,6 @@
 package main
 
-import "github.com/yoyrandao/autotag/cmd"
+import "github.com/yoyrandao/notch/cmd"
 
 func main() {
 	cmd.Execute()

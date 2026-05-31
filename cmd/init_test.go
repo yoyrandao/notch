@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yoyrandao/autotag/internal/config"
+	"github.com/yoyrandao/notch/internal/config"
 )
 
 func runInit(t *testing.T, dir string, extra ...string) (string, error) {
