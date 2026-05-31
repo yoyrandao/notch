@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	version = "dev"
-	commit  = "none"
+	Version = "dev"
+	Commit  = "none"
 )
 
 func NewVersionCmd() *cobra.Command {
@@ -16,7 +16,7 @@ func NewVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("notch %s (commit %s)\n", version, commit)
+			fmt.Printf("notch %s (commit %s)\n", Version, Commit)
 		},
 	}
 }
