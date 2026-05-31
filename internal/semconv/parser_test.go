@@ -1,6 +1,32 @@
 package semconv
 
-import "testing"
+import (
+	"regexp"
+	"testing"
+)
+
+func TestUnwrap(t *testing.T) {
+	azure := regexp.MustCompile(`^Merged PR \d+: (.+)$`)
+	cases := []struct {
+		name string
+		re   *regexp.Regexp
+		msg  string
+		want string
+	}{
+		{"nil re unchanged", nil, "Merged PR 5: feat: x", "Merged PR 5: feat: x"},
+		{"azure match extracts payload", azure, "Merged PR 5: feat: x", "feat: x"},
+		{"no match unchanged", azure, "feat: x", "feat: x"},
+		{"body preserved", azure, "Merged PR 5: feat: x\n\nBREAKING CHANGE: y", "feat: x\n\nBREAKING CHANGE: y"},
+		{"empty capture yields empty", regexp.MustCompile(`^Merged PR \d+: (.*)$`), "Merged PR 5: ", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := Unwrap(tc.msg, tc.re); got != tc.want {
+				t.Fatalf("Unwrap = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestParse(t *testing.T) {
 	cases := []struct {

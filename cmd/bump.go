@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -75,7 +76,12 @@ func (o *bumpOptions) runE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	parsed, entries, skipped, err := collectCommits(repoDir, lastTag)
+	pattern, err := o.commitPattern()
+	if err != nil {
+		return err
+	}
+
+	parsed, entries, skipped, err := collectCommits(repoDir, lastTag, pattern)
 	if err != nil {
 		return err
 	}
@@ -152,8 +158,28 @@ func (o *bumpOptions) lastVersion(repoDir string) (*semver.Version, string, erro
 	return &v, tag, nil
 }
 
+// commitPattern compiles the configured subject-unwrap regex. Returns nil when
+// unset (feature disabled). Errors when the regex is invalid or lacks a capture
+// group, since capture group 1 supplies the message to parse.
+func (o *bumpOptions) commitPattern() (*regexp.Regexp, error) {
+	p := o.config.Commit.SubjectPattern
+	if p == "" {
+		return nil, nil
+	}
+	re, err := regexp.Compile(p)
+	if err != nil {
+		return nil, fmt.Errorf("commit.subject_pattern %q is not a valid regexp: %w", p, err)
+	}
+	if re.NumSubexp() < 1 {
+		return nil, fmt.Errorf("commit.subject_pattern %q must have a capture group for the payload", p)
+	}
+	return re, nil
+}
+
 // collectCommits gathers conventional commits since the given ref (empty = all).
-func collectCommits(repoDir, ref string) (parsed []semconv.Commit, entries []changelog.Entry, skipped int, err error) {
+// When pattern is non-nil, each commit subject is unwrapped through it before
+// parsing (see semconv.Unwrap).
+func collectCommits(repoDir, ref string, pattern *regexp.Regexp) (parsed []semconv.Commit, entries []changelog.Entry, skipped int, err error) {
 	rawCommits, err := gitx.Log(repoDir, ref)
 	if err != nil {
 		return nil, nil, 0, err
@@ -162,7 +188,7 @@ func collectCommits(repoDir, ref string) (parsed []semconv.Commit, entries []cha
 	parsed = make([]semconv.Commit, 0, len(rawCommits))
 	entries = make([]changelog.Entry, 0, len(rawCommits))
 	for _, rc := range rawCommits {
-		c, ok := semconv.Parse(rc.Message)
+		c, ok := semconv.Parse(semconv.Unwrap(rc.Message, pattern))
 		if !ok {
 			skipped++
 			continue

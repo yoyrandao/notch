@@ -19,10 +19,21 @@ type ChangelogConfig struct {
 	Path string `koanf:"path"`
 }
 
+// CommitConfig tunes how raw commit messages are interpreted.
+//
+// SubjectPattern, when non-empty, is a regular expression with at least one
+// capture group. It is applied to each commit's subject line; capture group 1
+// becomes the message fed to the conventional-commit parser. This peels merge
+// wrappers such as Azure DevOps's "Merged PR 123: <message>". Empty disables it.
+type CommitConfig struct {
+	SubjectPattern string `koanf:"subject_pattern"`
+}
+
 type Config struct {
 	Repository string          `koanf:"repository"`
 	Tag        TagConfig       `koanf:"tag"`
 	Changelog  ChangelogConfig `koanf:"changelog"`
+	Commit     CommitConfig    `koanf:"commit"`
 }
 
 func DefaultPath() string { return ".autotag.yaml" }
@@ -36,6 +47,12 @@ tag:
 
 changelog:
   path: CHANGELOG.md
+
+# Extract the conventional message from wrapped merge-commit subjects.
+# Capture group 1 is parsed as the commit. Disabled when unset.
+# Example for Azure DevOps squash merges:
+# commit:
+#   subject_pattern: '^Merged PR \d+: (.+)$'
 `
 }
 

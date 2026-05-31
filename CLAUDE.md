@@ -1,6 +1,6 @@
 # autotag
 
-This file provides short guidance about the project creating. After some significant changes performed in project, Claude Code can edit this file to add some information.
+This file provides short guidance about the project creating. After some significant changes performed in project, Claude Code can edit this file to add some information. Always use codegraph MCP to scan codebase.
 
 ## Termins
 

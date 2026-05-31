@@ -308,6 +308,160 @@ func TestBump_FullRelease_WithPush(t *testing.T) {
 	}
 }
 
+// --- non-conventional commit history ---
+
+// Non-conventional commits in history are skipped: they neither contribute to
+// the bump nor break the run. Only conventional commits drive the version.
+func TestBump_NonConventionalCommitsSkipped(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	gitRun(t, dir, "tag", "v1.0.0")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "WIP")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "fix: a bug")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "updated readme")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: a feature")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "Merge pull request #1")
+
+	stdout, stderr, err := runBump(t, dir, "--dry-run", "--verbose")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 1 feat + 1 fix => minor over v1.0.0.
+	if strings.TrimSpace(stdout) != "v1.1.0" {
+		t.Fatalf("got %q, want v1.1.0", strings.TrimSpace(stdout))
+	}
+	// 3 non-conventional messages skipped (WIP, updated readme, Merge ...).
+	if !strings.Contains(stderr, "commits=2") || !strings.Contains(stderr, "skipped=3") {
+		t.Fatalf("verbose plan missing commits=2 skipped=3:\n%s", stderr)
+	}
+}
+
+// A tagged repo whose only new commits are non-conventional contributes no
+// bump => nothing to release.
+func TestBump_AllNonConventional_NothingToRelease(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	gitRun(t, dir, "tag", "v1.0.0")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "WIP")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "fixed stuff")
+
+	stdout, stderr, err := runBump(t, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("stdout should be empty, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "nothing to release") {
+		t.Fatalf("stderr missing 'nothing to release': %q", stderr)
+	}
+}
+
+// With no prior tag, the first release is 0.1.0 regardless of commit content,
+// so non-conventional commits still yield the initial version.
+func TestBump_AllNonConventional_NoTag_InitialRelease(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "initial import")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "WIP")
+
+	stdout, stderr, err := runBump(t, dir, "--dry-run", "--verbose")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(stdout) != "v0.1.0" {
+		t.Fatalf("got %q, want v0.1.0", strings.TrimSpace(stdout))
+	}
+	if !strings.Contains(stderr, "commits=0") || !strings.Contains(stderr, "skipped=2") {
+		t.Fatalf("verbose plan missing commits=0 skipped=2:\n%s", stderr)
+	}
+}
+
+// --- merge-commit subject unwrapping (Azure DevOps etc.) ---
+
+func TestBump_UnwrapAzurePrefix(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	gitRun(t, dir, "tag", "v1.0.0")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "Merged PR 5: feat: a feature")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "Merged PR 6: fix: a bug")
+	cfg := writeConfig(t, dir, "commit:\n  subject_pattern: '^Merged PR \\d+: (.+)$'\n")
+
+	stdout, stderr, err := runBump(t, dir, "--dry-run", "--verbose", "--config", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(stdout) != "v1.1.0" {
+		t.Fatalf("got %q, want v1.1.0", strings.TrimSpace(stdout))
+	}
+	if !strings.Contains(stderr, "commits=2") || !strings.Contains(stderr, "skipped=0") {
+		t.Fatalf("verbose plan missing commits=2 skipped=0:\n%s", stderr)
+	}
+}
+
+// Without the pattern configured, Azure-wrapped commits stay non-conventional.
+func TestBump_NoUnwrapConfig_Skipped(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	gitRun(t, dir, "tag", "v1.0.0")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "Merged PR 5: feat: a feature")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "Merged PR 6: fix: a bug")
+
+	stdout, stderr, err := runBump(t, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("stdout should be empty, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "nothing to release") {
+		t.Fatalf("stderr missing 'nothing to release': %q", stderr)
+	}
+}
+
+// Pattern matches but the extracted payload is not conventional -> skipped.
+func TestBump_UnwrapInvalidPayload_Skipped(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+	gitRun(t, dir, "tag", "v1.0.0")
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "Merged PR 7: random text")
+	cfg := writeConfig(t, dir, "commit:\n  subject_pattern: '^Merged PR \\d+: (.+)$'\n")
+
+	_, stderr, err := runBump(t, dir, "--dry-run", "--verbose", "--config", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr, "commits=0") || !strings.Contains(stderr, "skipped=1") {
+		t.Fatalf("verbose plan missing commits=0 skipped=1:\n%s", stderr)
+	}
+}
+
+func TestBump_InvalidCommitPattern(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	t.Run("bad regex", func(t *testing.T) {
+		cfg := writeConfig(t, dir, "commit:\n  subject_pattern: '^Merged PR ([0-9'\n")
+		_, _, err := runBump(t, dir, "--dry-run", "--config", cfg)
+		if err == nil {
+			t.Fatal("expected error for invalid regex")
+		}
+	})
+	t.Run("no capture group", func(t *testing.T) {
+		cfg := writeConfig(t, dir, "commit:\n  subject_pattern: '^Merged PR \\d+: .+$'\n")
+		_, _, err := runBump(t, dir, "--dry-run", "--config", cfg)
+		if err == nil || !strings.Contains(err.Error(), "capture group") {
+			t.Fatalf("expected capture-group error, got %v", err)
+		}
+	})
+}
+
 // --- config-driven bump tests ---
 
 func writeConfig(t *testing.T, dir, content string) string {

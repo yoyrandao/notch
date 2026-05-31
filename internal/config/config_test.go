@@ -51,6 +51,25 @@ func TestLoad_PartialFile(t *testing.T) {
 	}
 }
 
+func TestLoad_CommitSubjectPattern(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "cfg.yaml")
+	if err := os.WriteFile(f, []byte("commit:\n  subject_pattern: '^Merged PR \\d+: (.+)$'\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadFile(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Commit.SubjectPattern != `^Merged PR \d+: (.+)$` {
+		t.Errorf("Commit.SubjectPattern = %q", cfg.Commit.SubjectPattern)
+	}
+	// default is empty (disabled)
+	cfg2, _ := LoadOptional(filepath.Join(t.TempDir(), "none.yaml"))
+	if cfg2.Commit.SubjectPattern != "" {
+		t.Errorf("default SubjectPattern = %q, want empty", cfg2.Commit.SubjectPattern)
+	}
+}
+
 func TestLoad_ExplicitMissing(t *testing.T) {
 	_, err := LoadFile(filepath.Join(t.TempDir(), "missing.yaml"))
 	if err == nil {

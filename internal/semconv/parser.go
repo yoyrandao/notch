@@ -17,6 +17,30 @@ type Commit struct {
 
 var headerRE = regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9]*)(?:\(([^)]+)\))?(!?): (.+)$`)
 
+// Unwrap applies re to msg's subject (first line), replacing it with capture
+// group 1 when re matches. The body is preserved so footers like
+// "BREAKING CHANGE:" still reach Parse. When re is nil or the subject does not
+// match, msg is returned unchanged.
+//
+// Used to peel merge-commit wrappers (e.g. Azure DevOps "Merged PR 123: ...")
+// before classification.
+func Unwrap(msg string, re *regexp.Regexp) string {
+	if re == nil {
+		return msg
+	}
+
+	subject, body, hasBody := strings.Cut(msg, "\n")
+	m := re.FindStringSubmatch(subject)
+	if len(m) < 2 {
+		return msg
+	}
+
+	if hasBody {
+		return m[1] + "\n" + body
+	}
+	return m[1]
+}
+
 // Parse returns (commit, true) if msg matches Conventional Commits format,
 // otherwise (zero, false). Non-conv messages are not errors — they are simply
 // skipped by callers when classifying.
