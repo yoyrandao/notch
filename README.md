@@ -22,7 +22,7 @@ NOTE: **Before version 1.0.0 a breaking change only bumps the minor - the projec
 go install github.com/yoyrandao/notch@latest
 ```
 
-***// TODO: installation documentation***
+**// TODO: installation documentation**
 
 ## Quick start
 
