@@ -1,0 +1,62 @@
+// Package publisher executes user-defined publication steps after a release.
+package publisher
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
+)
+
+// Step is a named publication step with an associated script path.
+type Step struct {
+	Name   string
+	Script string
+}
+
+// Env carries release context injected into each script as environment variables:
+//
+//	NOTCH_TAG           full tag (e.g. v1.2.3)
+//	NOTCH_VERSION       version without prefix (e.g. 1.2.3)
+//	NOTCH_COMMIT        release commit SHA
+//	NOTCH_CHANGELOG_PATH absolute path to CHANGELOG.md
+//	NOTCH_REPOSITORY    absolute path to repository root
+type Env struct {
+	Tag           string
+	Version       string
+	Commit        string
+	ChangelogPath string
+	Repository    string
+}
+
+// Run executes each step sequentially. Returns on first failure, wrapping the
+// error with the step name.
+func Run(steps []Step, env Env) error {
+	for _, step := range steps {
+		if err := runStep(step, env); err != nil {
+			return fmt.Errorf("publish step %q: %w", step.Name, err)
+		}
+	}
+	return nil
+}
+
+func runStep(step Step, env Env) error {
+	cmd := buildCommand(step.Script)
+	cmd.Env = append(os.Environ(),
+		"NOTCH_TAG="+env.Tag,
+		"NOTCH_VERSION="+env.Version,
+		"NOTCH_COMMIT="+env.Commit,
+		"NOTCH_CHANGELOG_PATH="+env.ChangelogPath,
+		"NOTCH_REPOSITORY="+env.Repository,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func buildCommand(script string) *exec.Cmd {
+	if runtime.GOOS == "windows" {
+		return exec.Command("powershell.exe", "-File", script)
+	}
+	return exec.Command("bash", script)
+}
