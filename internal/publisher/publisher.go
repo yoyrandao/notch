@@ -81,7 +81,7 @@ func (p *prefixWriter) Write(b []byte) (int, error) {
 		if idx < 0 {
 			break
 		}
-		if _, err := fmt.Fprintf(p.w, "\t> %s", p.buf[:idx+1]); err != nil {
+		if _, err := fmt.Fprintf(p.w, "  > %s", p.buf[:idx+1]); err != nil {
 			return 0, err
 		}
 		p.buf = p.buf[idx+1:]
@@ -91,7 +91,7 @@ func (p *prefixWriter) Write(b []byte) (int, error) {
 
 func (p *prefixWriter) flush() {
 	if len(p.buf) > 0 {
-		fmt.Fprintf(p.w, "\t> %s\n", p.buf)
+		fmt.Fprintf(p.w, "  > %s\n", p.buf)
 		p.buf = p.buf[:0]
 	}
 }
