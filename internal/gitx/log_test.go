@@ -241,3 +241,17 @@ func TestCommitsSince_ExcludesMerges(t *testing.T) {
 		}
 	}
 }
+
+func TestHead(t *testing.T) {
+	gitAvailable(t)
+	dir := initRepo(t)
+	mustRun(t, dir, "commit", "--allow-empty", "-m", "feat: init")
+
+	hash, err := Head(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(hash) != 40 {
+		t.Errorf("expected 40-char SHA, got %q (len=%d)", hash, len(hash))
+	}
+}
