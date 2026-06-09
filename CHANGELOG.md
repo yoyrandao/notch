@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-06-09
+
+### Features and enhancements
+
+- add publishing scripts call functions #4 (26c10ed)
+
+### Additional changes
+
+- add install instructions (6293e82)
+
 ## [0.2.0] - 2026-05-31
 
 ### Bug fixes
