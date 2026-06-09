@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -701,5 +703,66 @@ func TestBump_DryRun_PatchPreview(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(filepath.Join(dir, "Chart.yaml")); string(got) != "version: 0.0.0\n" {
 		t.Fatalf("dry-run mutated file: %q", got)
+	}
+}
+
+// --- publish pipeline tests ---
+
+func TestBump_PublishStepsExecuted(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("bash publish tests not supported on Windows")
+	}
+	gitAvailable(t)
+	setGitEnv(t)
+
+	dir := initRepo(t)
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "feat: initial feature")
+
+	outFile := filepath.Join(dir, "published.txt")
+	scriptFile := filepath.Join(dir, "publish.sh")
+	os.WriteFile(scriptFile, []byte(fmt.Sprintf(
+		"#!/bin/sh\nprintf '%%s %%s %%s' \"$NOTCH_TAG\" \"$NOTCH_VERSION\" \"$NOTCH_COMMIT\" > %s\n",
+		outFile,
+	)), 0o755)
+
+	cfgFile := filepath.Join(dir, ".notch.yaml")
+	os.WriteFile(cfgFile, []byte(fmt.Sprintf(`repository: .
+tag:
+  prefix: "v"
+  push: false
+changelog:
+  path: CHANGELOG.md
+publish:
+  steps:
+    - name: publish
+      script: %s
+`, scriptFile)), 0o644)
+
+	stdout, _, err := runBump(t, dir, "--no-push", "--config", cfgFile)
+	if err != nil {
+		t.Fatalf("bump failed: %v", err)
+	}
+	tag := strings.TrimSpace(stdout)
+	if tag == "" {
+		t.Fatal("expected tag on stdout")
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("publish script did not run: %v", err)
+	}
+	parts := strings.Fields(string(data))
+	if len(parts) < 3 {
+		t.Fatalf("expected 3 fields in output, got %q", string(data))
+	}
+	if parts[0] != tag {
+		t.Errorf("NOTCH_TAG = %q, want %q", parts[0], tag)
+	}
+	version := strings.TrimPrefix(tag, "v")
+	if parts[1] != version {
+		t.Errorf("NOTCH_VERSION = %q, want %q", parts[1], version)
+	}
+	if len(parts[2]) != 40 {
+		t.Errorf("NOTCH_COMMIT = %q, expected 40-char SHA", parts[2])
 	}
 }
