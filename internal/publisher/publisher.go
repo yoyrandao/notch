@@ -2,7 +2,9 @@
 package publisher
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -55,9 +57,43 @@ func runStep(step Step, env Env) error {
 		"NOTCH_CHANGELOG_PATH="+env.ChangelogPath,
 		"NOTCH_REPOSITORY="+env.Repository,
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	outW := newPrefixWriter(os.Stdout)
+	errW := newPrefixWriter(os.Stderr)
+	cmd.Stdout = outW
+	cmd.Stderr = errW
+	err := cmd.Run()
+	outW.flush()
+	errW.flush()
+	return err
+}
+
+type prefixWriter struct {
+	w   io.Writer
+	buf []byte
+}
+
+func newPrefixWriter(w io.Writer) *prefixWriter { return &prefixWriter{w: w} }
+
+func (p *prefixWriter) Write(b []byte) (int, error) {
+	p.buf = append(p.buf, b...)
+	for {
+		idx := bytes.IndexByte(p.buf, '\n')
+		if idx < 0 {
+			break
+		}
+		if _, err := fmt.Fprintf(p.w, "\t> %s", p.buf[:idx+1]); err != nil {
+			return 0, err
+		}
+		p.buf = p.buf[idx+1:]
+	}
+	return len(b), nil
+}
+
+func (p *prefixWriter) flush() {
+	if len(p.buf) > 0 {
+		fmt.Fprintf(p.w, "\t> %s\n", p.buf)
+		p.buf = p.buf[:0]
+	}
 }
 
 func buildCommand(script string) *exec.Cmd {
