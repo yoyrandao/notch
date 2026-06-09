@@ -13,6 +13,7 @@ import (
 	"github.com/yoyrandao/notch/internal/changelog"
 	"github.com/yoyrandao/notch/internal/gitx"
 	"github.com/yoyrandao/notch/internal/project"
+	"github.com/yoyrandao/notch/internal/publisher"
 	"github.com/yoyrandao/notch/internal/semconv"
 	"github.com/yoyrandao/notch/internal/semver"
 	"github.com/yoyrandao/notch/internal/ui"
@@ -268,6 +269,9 @@ func (o *bumpOptions) printDryRun(cmd *cobra.Command, repoDir string, rel releas
 	if !o.noPush {
 		steps = append(steps, fmt.Sprintf("push HEAD and %s to %s", c.Green(rel.tag), o.remote))
 	}
+	for _, s := range o.config.Publish.Steps {
+		steps = append(steps, fmt.Sprintf("publish[%s] %s", s.Name, s.Script))
+	}
 
 	fmt.Fprintln(out, rel.tag)
 	fmt.Fprintf(errOut, "%s would %s\n", c.Bold(c.Cyan("dry-run:")), strings.Join(steps, ", "))
@@ -305,6 +309,27 @@ func (o *bumpOptions) executeRelease(cmd *cobra.Command, repoDir string, rel rel
 
 	if !o.noPush {
 		if err := gitx.Push(repoDir, o.remote, "HEAD", rel.tag); err != nil {
+			return err
+		}
+	}
+
+	if len(o.config.Publish.Steps) > 0 {
+		commit, err := gitx.Head(repoDir)
+		if err != nil {
+			return err
+		}
+		steps := make([]publisher.Step, len(o.config.Publish.Steps))
+		for i, s := range o.config.Publish.Steps {
+			steps[i] = publisher.Step{Name: s.Name, Script: s.Script}
+		}
+		pubEnv := publisher.Env{
+			Tag:           rel.tag,
+			Version:       rel.version,
+			Commit:        commit,
+			ChangelogPath: absChangelog,
+			Repository:    repoDir,
+		}
+		if err := publisher.Run(steps, pubEnv); err != nil {
 			return err
 		}
 	}
