@@ -1,0 +1,32 @@
+repository: .
+
+tag:
+  prefix: "v"
+  push: true
+
+changelog:
+  path: CHANGELOG.md
+
+# commit:
+#   # Extract the conventional message from wrapped merge-commit subjects.
+#   # Capture group 1 is parsed as the commit. Disabled when unset.
+#   # Example for Azure DevOps squash merges:
+#   subject_pattern: '^Merged PR \d+: (.+)$'
+#
+#   # Release commit message. Tokens: {tag} (e.g. v1.2.3), {version} (e.g. 1.2.3).
+#   # Append "[skip ci]" to stop CI triggering on the release commit.
+#   release_message: "chore(release): {tag}"
+
+publish:
+#   # Steps run sequentially after push. Any non-zero exit aborts the pipeline.
+#   # Environment variables injected into each script:
+#   #   NOTCH_TAG           full tag (e.g. v1.2.3)
+#   #   NOTCH_VERSION       version without prefix (e.g. 1.2.3)
+#   #   NOTCH_COMMIT        release commit SHA
+#   #   NOTCH_CHANGELOG_PATH absolute path to CHANGELOG.md
+#   #   NOTCH_REPOSITORY    absolute path to repository root
+  steps:
+  - name: step1
+    script: ./scripts/step1.sh
+  - name: step2
+    script: ./scripts/step2.sh

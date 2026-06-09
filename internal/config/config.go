@@ -35,11 +35,24 @@ type CommitConfig struct {
 	ReleaseMessage string `koanf:"release_message"`
 }
 
+// PublishStep is a named step in the post-release publication pipeline.
+type PublishStep struct {
+	Name   string `koanf:"name"`
+	Script string `koanf:"script"`
+}
+
+// PublishConfig defines the post-release publication pipeline.
+// Steps run sequentially after push; any non-zero exit aborts the pipeline.
+type PublishConfig struct {
+	Steps []PublishStep `koanf:"steps"`
+}
+
 type Config struct {
 	Repository string          `koanf:"repository"`
 	Tag        TagConfig       `koanf:"tag"`
 	Changelog  ChangelogConfig `koanf:"changelog"`
 	Commit     CommitConfig    `koanf:"commit"`
+	Publish    PublishConfig   `koanf:"publish"`
 }
 
 func DefaultPath() string { return ".notch.yaml" }
@@ -63,6 +76,20 @@ changelog:
 #   # Release commit message. Tokens: {tag} (e.g. v1.2.3), {version} (e.g. 1.2.3).
 #   # Append "[skip ci]" to stop CI triggering on the release commit.
 #   release_message: "chore(release): {tag}"
+
+# publish:
+#   # Steps run sequentially after push. Any non-zero exit aborts the pipeline.
+#   # Environment variables injected into each script:
+#   #   NOTCH_TAG           full tag (e.g. v1.2.3)
+#   #   NOTCH_VERSION       version without prefix (e.g. 1.2.3)
+#   #   NOTCH_COMMIT        release commit SHA
+#   #   NOTCH_CHANGELOG_PATH absolute path to CHANGELOG.md
+#   #   NOTCH_REPOSITORY    absolute path to repository root
+#   steps:
+#     - name: upload-artifacts
+#       script: ./scripts/upload.sh
+#     - name: notify-slack
+#       script: ./scripts/notify.sh
 `
 }
 
@@ -82,6 +109,7 @@ func defaultConfig() Config {
 		Tag:        TagConfig{Prefix: "v", Push: true},
 		Changelog:  ChangelogConfig{Path: "CHANGELOG.md"},
 		Commit:     CommitConfig{ReleaseMessage: "chore(release): {tag}"},
+		Publish:    PublishConfig{Steps: []PublishStep{}},
 	}
 }
 

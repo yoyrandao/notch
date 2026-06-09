@@ -88,6 +88,15 @@ func CommitsSince(repoDir, ref string) ([]string, error) {
 	return out, nil
 }
 
+// Head returns the full commit SHA of HEAD.
+func Head(repoDir string) (string, error) {
+	stdout, stderr, err := runGit(repoDir, "rev-parse", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse HEAD: %w: %s", err, stderr.String())
+	}
+	return strings.TrimSpace(stdout.String()), nil
+}
+
 // CreateCommit stages the given paths (relative to repoDir) and creates a
 // commit with the given message. Returns ErrNothingStaged when there is
 // nothing to commit.
