@@ -113,3 +113,34 @@ func TestDefaultYAML_RoundTrip(t *testing.T) {
 		t.Errorf("Changelog.Path = %q", cfg.Changelog.Path)
 	}
 }
+
+func TestLoad_PublishSteps(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "cfg.yaml")
+	if err := os.WriteFile(f, []byte(`
+publish:
+  steps:
+    - name: upload
+      script: ./scripts/upload.sh
+    - name: notify
+      script: ./scripts/notify.sh
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Publish.Steps) != 2 {
+		t.Fatalf("expected 2 steps, got %d", len(cfg.Publish.Steps))
+	}
+	if cfg.Publish.Steps[0].Name != "upload" {
+		t.Errorf("step[0].Name = %q, want %q", cfg.Publish.Steps[0].Name, "upload")
+	}
+	if cfg.Publish.Steps[0].Script != "./scripts/upload.sh" {
+		t.Errorf("step[0].Script = %q, want %q", cfg.Publish.Steps[0].Script, "./scripts/upload.sh")
+	}
+	if cfg.Publish.Steps[1].Name != "notify" {
+		t.Errorf("step[1].Name = %q, want %q", cfg.Publish.Steps[1].Name, "notify")
+	}
+}
