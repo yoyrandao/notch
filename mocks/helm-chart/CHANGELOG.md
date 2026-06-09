@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-06-09
+
+### Features and enhancements
+
+- publisher: prefix script output lines with tab+> (641ef08)
+
 ## [0.5.2] - 2026-06-09
 
 ### Bug fixes
