@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+
+	"github.com/yoyrandao/notch/internal/ui"
 )
 
 // Step is a named publication step with an associated script path.
@@ -32,10 +34,14 @@ type Env struct {
 // Run executes each step sequentially. Returns on first failure, wrapping the
 // error with the step name.
 func Run(steps []Step, env Env) error {
+	c := ui.New(os.Stderr)
+
 	for _, step := range steps {
+		fmt.Fprintf(os.Stderr, "running %s...\n", c.Green(step.Name))
 		if err := runStep(step, env); err != nil {
 			return fmt.Errorf("publish step %q: %w", step.Name, err)
 		}
+		fmt.Fprintf(os.Stderr, "%s finished.\n", c.Green(step.Name))
 	}
 	return nil
 }

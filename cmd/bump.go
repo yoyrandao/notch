@@ -336,6 +336,5 @@ func (o *bumpOptions) executeRelease(cmd *cobra.Command, repoDir string, rel rel
 
 	c := ui.New(cmd.ErrOrStderr())
 	fmt.Fprintf(cmd.ErrOrStderr(), "%s released %s\n", c.Green("✓"), c.Bold(rel.tag))
-	fmt.Fprintln(cmd.OutOrStdout(), rel.tag)
 	return nil
 }
