@@ -669,6 +669,118 @@ func TestBump_PatchNpm(t *testing.T) {
 	}
 }
 
+func TestBump_PatchCargo(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "Cargo.toml"),
+		[]byte("[package]\nname = \"app\"\nversion = \"0.0.0\"\nedition = \"2021\"\n\n[dependencies]\nserde = \"1.0\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "Cargo.toml")
+	gitRun(t, dir, "commit", "-m", "feat: init")
+
+	if _, _, err := runBump(t, dir, "--no-push"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "Cargo.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nserde = \"1.0\"\n"
+	if string(got) != want {
+		t.Fatalf("Cargo.toml:\n%q\nwant:\n%q", got, want)
+	}
+	if files := headFiles(t, dir); !slices.Contains(files, "Cargo.toml") || !slices.Contains(files, "CHANGELOG.md") {
+		t.Fatalf("release commit files = %v", files)
+	}
+}
+
+func TestBump_PatchPom(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "pom.xml"),
+		[]byte("<?xml version=\"1.0\"?>\n<project>\n  <artifactId>app</artifactId>\n  <version>0.0.0</version>\n</project>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "pom.xml")
+	gitRun(t, dir, "commit", "-m", "feat: init")
+
+	if _, _, err := runBump(t, dir, "--no-push"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "pom.xml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<?xml version=\"1.0\"?>\n<project>\n  <artifactId>app</artifactId>\n  <version>0.1.0</version>\n</project>\n"
+	if string(got) != want {
+		t.Fatalf("pom.xml:\n%q\nwant:\n%q", got, want)
+	}
+	if files := headFiles(t, dir); !slices.Contains(files, "pom.xml") || !slices.Contains(files, "CHANGELOG.md") {
+		t.Fatalf("release commit files = %v", files)
+	}
+}
+
+func TestBump_PatchPyproject(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"),
+		[]byte("[project]\nname = \"app\"\nversion = \"0.0.0\"\nrequires-python = \">=3.11\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "pyproject.toml")
+	gitRun(t, dir, "commit", "-m", "feat: init")
+
+	if _, _, err := runBump(t, dir, "--no-push"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[project]\nname = \"app\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n"
+	if string(got) != want {
+		t.Fatalf("pyproject.toml:\n%q\nwant:\n%q", got, want)
+	}
+	if files := headFiles(t, dir); !slices.Contains(files, "pyproject.toml") || !slices.Contains(files, "CHANGELOG.md") {
+		t.Fatalf("release commit files = %v", files)
+	}
+}
+
+func TestBump_PatchDotnet(t *testing.T) {
+	gitAvailable(t)
+	setGitEnv(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "app.csproj"),
+		[]byte("<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <Version>0.0.0</Version>\n  </PropertyGroup>\n</Project>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "app.csproj")
+	gitRun(t, dir, "commit", "-m", "feat: init")
+
+	if _, _, err := runBump(t, dir, "--no-push"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "app.csproj"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <Version>0.1.0</Version>\n  </PropertyGroup>\n</Project>\n"
+	if string(got) != want {
+		t.Fatalf("app.csproj:\n%q\nwant:\n%q", got, want)
+	}
+	if files := headFiles(t, dir); !slices.Contains(files, "app.csproj") || !slices.Contains(files, "CHANGELOG.md") {
+		t.Fatalf("release commit files = %v", files)
+	}
+}
+
 func TestBump_NoToolProject_OnlyChangelog(t *testing.T) {
 	gitAvailable(t)
 	setGitEnv(t)
