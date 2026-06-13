@@ -27,7 +27,7 @@ type Patcher interface {
 
 // registry is the ordered set of supported project types. Adding a type later
 // is one struct plus one entry here.
-var registry = []Patcher{helm{}, npm{}}
+var registry = []Patcher{helm{}, npm{}, cargo{}, dotnet{}, pyproject{}, pom{}}
 
 // Detect returns the version files (relative to repoDir) of every recognised
 // project type present. Read-only; safe for dry-run.
