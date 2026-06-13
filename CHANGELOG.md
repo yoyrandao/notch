@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-06-13
+
+### Features and enhancements
+
+- extend tool specific support #3 (#5) (6fdad7d)
+
 ## [0.3.0] - 2026-06-09
 
 ### Features and enhancements
